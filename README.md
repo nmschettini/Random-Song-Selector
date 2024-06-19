@@ -5,7 +5,7 @@ This app makes use of Flask and Spotipy to select a random subset of songs from 
 ## Requirements
 - spotipy 
 - Flask 
-- spotify-dotenv
+- python-dotenv
 
 ## Instructions
 1. Create a Spotify app at https://developer.spotify.com/dashboard
