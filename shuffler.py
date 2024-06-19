@@ -21,6 +21,7 @@ TOKEN = "spotify token"
 
 @app.route("/")
 def start():
+    # Redirect to the url for Spotify authentication.
     spotify_auth_url = new_spotify_oauth().get_authorize_url()
     return redirect(spotify_auth_url)
 
@@ -34,6 +35,7 @@ def new_spotify_oauth():
 
 @app.route("/auth")
 def spotify_auth():
+    # Store the access token resulting from the authentication
     session.clear()
     code = request.args.get("code")
     token_info = new_spotify_oauth().get_access_token(code)
@@ -58,6 +60,7 @@ def get_spotify_token():
 
 @app.route("/shuffle")
 def shuffle_songs():
+    # Attempt to get the authentication token
     try: 
         token_info = get_spotify_token()
     except:
@@ -70,6 +73,7 @@ def shuffle_songs():
     source_id = None
     destination_id = None
     
+    # Get the ids of the two playlists this app interacts with
     playlists = spotify.user_playlists(user_id)['items']
     for playlist in playlists:
         if(playlist['name'] == source_name):
@@ -77,23 +81,27 @@ def shuffle_songs():
         if(playlist['name'] == destination_name):
             destination_id = playlist['id']
     
+    # Check the ids
     if not source_id:
         return f'Please create a source playlist named "{source_name}", or change which playlist is the source in the .env file.'
     if not destination_id:
+        # Create the destination playlist if it was not already present.
         destination_id = spotify.user_playlist_create(user_id, destination_name, False, False, f'Random songs selected from playlist "{source_name}"')["id"]
     
-    # source_items = spotify.playlist_items(source_id)["items"]
+    # Get the uris for the songs in the source playlist
     source_playlist = spotify.playlist_items(source_id)
     source_songs = []
     for song in source_playlist["items"]:
         source_songs.append(song['track']['uri'])
 
+    # Remove all songs from the destination playlist
     destination_playlist = spotify.playlist_items(destination_id)
     destination_songs = []
     for song in destination_playlist["items"]:
         destination_songs.append(song['track']['uri'])
     spotify.playlist_remove_all_occurrences_of_items(destination_id, destination_songs)
 
+    # Add a random sample of songs from the source playlist.
     spotify.playlist_add_items(destination_id, random.sample(source_songs, 50))
 
     return "Done"
