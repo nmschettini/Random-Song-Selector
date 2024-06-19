@@ -1,7 +1,7 @@
 from flask import Flask, request, url_for, session, redirect
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import os, time, webbrowser
+import os, time, webbrowser, random
 from dotenv import load_dotenv
 
 # Load in the environment vairables from the .env file
@@ -29,7 +29,7 @@ def new_spotify_oauth():
         client_id=client_id,
         client_secret=client_secret,
         redirect_uri=url_for("spotify_auth", _external = True),
-        scope="user-library-read playlist-modify-public playlist-modify-private"
+        scope="user-library-read playlist-read-private playlist-modify-public playlist-modify-private"
     )
 
 @app.route("/auth")
@@ -38,7 +38,7 @@ def spotify_auth():
     code = request.args.get("code")
     token_info = new_spotify_oauth().get_access_token(code)
     session[TOKEN] = token_info
-    return redirect("/test")
+    return redirect("/shuffle")
 
 def get_spotify_token():
     token_info = session.get(TOKEN, None)
@@ -56,13 +56,47 @@ def get_spotify_token():
 
     return token_info
 
-@app.route("/source")
-def get_all_songs():
-    return None
+@app.route("/shuffle")
+def shuffle_songs():
+    try: 
+        token_info = get_spotify_token()
+    except:
+        print('User not logged in')
+        return redirect("/")
+    
+    spotify = spotipy.Spotify(auth=token_info['access_token'])
+    user_id = spotify.current_user()['id']
 
-@app.route("/dest")
-def shuffle():
-    return None
+    source_id = None
+    destination_id = None
+    
+    playlists = spotify.user_playlists(user_id)['items']
+    for playlist in playlists:
+        if(playlist['name'] == source_name):
+            source_id = playlist['id']
+        if(playlist['name'] == destination_name):
+            destination_id = playlist['id']
+    
+    if not source_id:
+        return f'Please create a source playlist named "{source_name}", or change which playlist is the source in the .env file.'
+    if not destination_id:
+        destination_id = spotify.user_playlist_create(user_id, destination_name, False, False, f'Random songs selected from playlist "{source_name}"')["id"]
+    
+    # source_items = spotify.playlist_items(source_id)["items"]
+    source_playlist = spotify.playlist_items(source_id)
+    source_songs = []
+    for song in source_playlist["items"]:
+        source_songs.append(song['track']['uri'])
 
+    destination_playlist = spotify.playlist_items(destination_id)
+    destination_songs = []
+    for song in destination_playlist["items"]:
+        destination_songs.append(song['track']['uri'])
+    spotify.playlist_remove_all_occurrences_of_items(destination_id, destination_songs)
 
+    spotify.playlist_add_items(destination_id, random.sample(source_songs, 50))
+
+    return "Done"
+
+webbrowser.open('http://127.0.0.1:5000/', new=2)
 app.run(debug=True)
